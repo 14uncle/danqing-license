@@ -2,7 +2,7 @@
 
 - Spec:`danqing/docs/specs/SPEC-danqing-license.md`(2026-10-10 用户批准)
 - 来源：复盘 `danqing/docs/intent/retro-trio-reuse-2026-10-10.md` S1
-- 状态:**已批准 (2026-10-10, 用户「S1+B 批准」), 成稿于本仓**。T0–T5 已于 2026-10-10 落地; T6 对外动作待逐项点头。
+- 状态:**已批准 (2026-10-10, 用户「S1+B 批准」), 成稿于本仓**。T0–T6 已于 2026-10-10 落地(闸 A 通过 + 公开仓已建);T7/T8 消费方迁移未开始。
 
 ## 刀序与依赖
 
@@ -48,8 +48,9 @@ T0 建仓 → T1 key.rs → T2 entitlement.rs → (T3 store.rs ∥ T4 keygen) �
 
 **闸 A(crate 成稿验收)**:我自查 diff + 测试矩阵,用户点头后进 T6
 
-- [ ] **T6 远程建仓【对外动作,逐项点头】**:`gh repo create 14uncle/danqing-license --public`(与 encoding/logfile 同姿态)+ push dev/master;产品仓消费方式=git 依赖钉 rev + 本机 `[patch]` 联动
-  - Verify: gh 远端可见、push 成功
+- [x] **T6 远程建仓【对外动作,逐项点头】** ✅ 2026-10-10:用户明确点头「公开仓 14uncle/danqing-license」→ `gh repo create --public --source=. --remote=origin --push` + topics
+  - 结果: `https://github.com/14uncle/danqing-license`(PUBLIC,默认分支 **master** —— 兄弟 crate 单分支惯例,与 encoding/logfile 同;非 dev/master 双分支)
+  - 产品仓消费方式=git 依赖钉 rev + 本机 `[patch]` 联动
 
 - [ ] **T7 dropshelf 迁移**:Cargo.toml 加 git dep(features 按需 store)→ 删 license.rs/store_license.rs/bin/keygen.rs(915 行)→ 薄壳(常量+Feature→allows_at 适配+默认 license.key 路径)→ 产品侧只留接线测试
   - Acceptance: 净删 ~750+ 行;三件套绿;门控行为不变(四 Feature 点位原样)
