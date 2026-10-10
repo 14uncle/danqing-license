@@ -1,0 +1,68 @@
+[package]
+name = "danqing-license"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "丹青产品线授权基建 —— Ed25519 离线 license key 校验 + 商店 add-on 状态映射 (零 UI 依赖)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/14uncle/danqing-license"
+
+[dependencies]
+# Ed25519 验签 (成稿来源: danqing-log v1.x license.rs; 与两产品现版一致, 钉 2)
+ed25519-dalek = "2"
+# key 串的 base64url (无填充) 编解码
+base64 = "0.22"
+# payload JSON: verify 侧手解 Value 不 derive, 只有这一支依赖
+serde_json = "1"
+# 加载失败告警 (绝不 panic); 零 UI 依赖
+log = "0.4"
+
+# 商店轨 (feature `store`, 默认关): WinRT broker 查询/购买拉起。
+# features 与 pomodoro / log / dropshelf 实测成稿逐项一致 ——
+# Win32_UI_Shell/WinRT = 购买对话框属主绑定 (IInitializeWithWindow) + COM 单元初始化;
+# Win32_UI_WindowsAndMessaging = EnumWindows 定位本进程主窗口。
+[dependencies.windows]
+version = "0.61"
+optional = true
+features = [
+    "Services_Store",
+    "ApplicationModel",
+    "Win32_Foundation",
+    "Win32_System_WinRT",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+]
+# 按 InAppOfferToken 在商店目录定位 add-on 时需命名 IIterable (windows 传递依赖提升)
+[dependencies.windows-collections]
+version = "0.2"
+optional = true
+
+# MSIX 包标识判定 (运行时 `GetCurrentPackageFullName`) —— 与框架 `danqing/src/platform.rs`
+# 同款成稿。自含以避开「兄弟 crate 反向依赖 UI 框架」(零 UI 依赖红线, 见 SPEC Open Q4)。
+[dependencies.windows-sys]
+version = "0.59"
+optional = true
+features = ["Win32_Storage_Packaging_Appx"]
+
+# 签发工具 (feature `keygen`, 默认关)。私钥始终在仓库外, 由 CLI 路径传入。
+[dependencies.getrandom]
+version = "0.2"
+optional = true
+
+[features]
+default = []
+# 商店轨: WinRT broker (windows crate 依赖重, 不默认拉)
+store = ["dep:windows", "dep:windows-collections", "dep:windows-sys"]
+# 签发 CLI
+keygen = ["dep:getrandom"]
+
+[[bin]]
+name = "keygen"
+path = "src/bin/keygen.rs"
+required-features = ["keygen"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+strip = "debuginfo"
