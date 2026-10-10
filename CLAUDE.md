@@ -52,7 +52,10 @@ cargo run --features keygen --bin keygen -- sign --prefix <P> --product <N> ~/.d
 - **Always**:私钥仓库外(`~/.danqing-*-keys/`);fail-closed;先验签后解 JSON;load 失败=Free 不挡免费层;三件套全绿
 - **Never**:不碰 pomodoro;不改产品 `Feature` 枚举语义与门控点位;不引 UI/网络依赖;
   crate 内不嵌任何真实公钥/私钥(测试一律临时密钥对)
-- **Ask first**:crates.io 发布姿态;payload `expires` 的 key 侧 Trial 出租;对外动作(建远程仓/push)
+- **已裁 (2026-10-10 用户裁决)**: **不上 crates.io** —— git 钉 rev 已可复现, 农场是唯一消费者,
+  索引上架是纯开销 + 公开 API 稳定承诺; 「可发布」姿态 (零 UI 依赖/独立测试/文档) 保持,
+  外部需求敲门再议
+- **Ask first**:payload `expires` 的 key 侧 Trial 出租;对外动作(建远程仓/push)
 
 ## 结构
 
