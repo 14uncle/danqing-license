@@ -52,10 +52,10 @@ T0 建仓 → T1 key.rs → T2 entitlement.rs → (T3 store.rs ∥ T4 keygen) �
   - 结果: `https://github.com/14uncle/danqing-license`(PUBLIC,默认分支 **master** —— 兄弟 crate 单分支惯例,与 encoding/logfile 同;非 dev/master 双分支)
   - 产品仓消费方式=git 依赖钉 rev + 本机 `[patch]` 联动
 
-- [ ] **T7 dropshelf 迁移**:Cargo.toml 加 git dep(features 按需 store)→ 删 license.rs/store_license.rs/bin/keygen.rs(915 行)→ 薄壳(常量+Feature→allows_at 适配+默认 license.key 路径)→ 产品侧只留接线测试
-  - Acceptance: 净删 ~750+ 行;三件套绿;门控行为不变(四 Feature 点位原样)
-  - Verify: `cargo test` + diff stat
-  - lock 手法:直接 `cargo check` 最小重解,**不** `cargo update -p danqing`
+- [x] **T7 dropshelf 迁移** ✅ 2026-10-10 `20129af`(dev, 未推):Cargo.toml 加 git dep(rev `e420e48`, store)→ 删 license.rs/store_license.rs/bin/keygen.rs 三份同构(915 行)→ 薄壳(常量注入+FeatureGate 适配 allows_at+默认 license.key 路径+Offer ID 转发)→ 产品侧只留接线测试 4 条
+  - 结果: 净 −687 行;三件套绿;测试 84→77(旧 license 8 条 + keygen 3 条由 crate 侧承接, 预期内);门控四点位原样零改动
+  - 落法记录: ① crate `activate(path, key, ...)` 参数序与旧版相反 → 薄壳内重排, 调用点零改动; ② windows/windows-collections 直依随壳删除(crate 传递, 0.61 同版合一); ③ Cargo.toml 与在途发布链(winresource 块)同文件 —— 外科提交: 暂存时先剔除对方 hunk 再回填工作树
+  - Verify: `cargo test` + diff stat ✅
 
 **闸 B**:dropshelf 便携版 key 激活人工走通(keygen 签 key→激活→四功能门开)
 
