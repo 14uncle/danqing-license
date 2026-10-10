@@ -8,8 +8,8 @@
 
 ## 状态
 
-- 2026-10-10:建仓 + 成稿(plan T0–T5)。三件套全绿,feature 组合(default / `keygen` / `store`)全过。
-  消费方迁移(dropshelf / log)见 plan T7/T8,**尚未开始**;T6 建远程仓+push 属对外动作,待用户逐项点头。
+- 2026-10-10:建仓 + 成稿(plan T0–T5),**闸 A 通过**(用户点头),建 GitHub 公仓并 push。
+  三件套全绿(clippy `--all-features` 0 警告 / 39 测试)。消费方迁移(dropshelf / log)见 plan T7/T8,**尚未开始**。
 
 ## 必读
 
@@ -19,9 +19,9 @@
 
 ## 仓库与分支
 
-- 分支:`dev` 默认,`master` 发布基线(全家同一模型)
+- 分支:`master`(兄弟 crate 单一分支,与 danqing-encoding / danqing-logfile 同)
 - 本地 git 身份:十四叔 <gwhun@qq.com>
-- 远程:**尚未创建**(T6 对外动作,需用户逐项点头)
+- 远程:`git@github.com:14uncle/danqing-license.git`(**公开仓**,2026-10-10 建)
 
 ## Tech Stack
 
