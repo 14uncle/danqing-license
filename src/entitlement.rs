@@ -12,7 +12,9 @@
 
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::Duration;
 
 use crate::key::{KeyError, Payload, verify_key};
 
@@ -106,20 +108,69 @@ pub fn activate(
 
 /// 崩溃安全原子写入: 写唯一名临时文件 → rename 覆盖目标。
 ///
-/// 与框架 `persist::atomic_save` 同形, 但临时文件名带 pid —— 避免多实例/
-/// 多进程同写同一目标时共用 `x.tmp` 互相踩 (半截 tmp 被 rename 上位即坏文件)。
-/// rename 失败时清掉半截 tmp, 不留垃圾。
+/// 与框架 `persist::atomic_save` 同形 (兄弟 crate 零 UI 依赖, 不引 danqing 的
+/// `persist`): 临时名 `<文件名>.tmp.<pid>.<序号>` —— pid 防跨进程互踩, 序号防
+/// 同进程多线程互踩 (红队 F2); 成功后清扫同前缀陈旧残渣 (红队 F1: pid 后缀失去
+/// 「下次同名覆盖」自愈, 不扫会永久累积; 时龄阈值保护并行实例的在飞 tmp);
+/// rename 失败清掉自己的半截 tmp。
 fn atomic_save(path: &Path, data: &[u8]) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+    let tmp = tmp_name_for(path);
     fs::write(&tmp, data)?;
     if let Err(e) = fs::rename(&tmp, path) {
         let _ = fs::remove_file(&tmp);
         return Err(e);
     }
+    sweep_stale_tmp(path, STALE_TMP_MAX_AGE);
     Ok(())
+}
+
+/// 临时文件序号 (进程内单调递增)。
+static TMP_SEQ: AtomicU32 = AtomicU32::new(0);
+
+/// tmp 文件超过此时龄视为崩溃残渣 (在飞 tmp 生命期是毫秒级)。
+const STALE_TMP_MAX_AGE: Duration = Duration::from_secs(3600);
+
+/// 本调用的唯一临时文件名 (追加式; 不用 `with_extension`, 同 stem 不同扩展名
+/// 会撞名)。
+fn tmp_name_for(path: &Path) -> PathBuf {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_default();
+    path.with_file_name(format!(
+        "{name}.tmp.{}.{}",
+        std::process::id(),
+        TMP_SEQ.fetch_add(1, Ordering::Relaxed)
+    ))
+}
+
+/// 崩溃残渣清扫: 每次成功落盘后顺手清同前缀陈旧残渣。best-effort,
+/// 任何一步失败都忽略, 绝不影响主链。
+fn sweep_stale_tmp(path: &Path, max_age: Duration) {
+    let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
+        return;
+    };
+    let prefix = format!("{}.tmp.", name.to_string_lossy());
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let fname = entry.file_name().to_string_lossy().into_owned();
+        if !fname.starts_with(&prefix) {
+            continue;
+        }
+        let stale = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .map(|t| t.elapsed().unwrap_or_default() >= max_age)
+            .unwrap_or(false);
+        if stale {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
 }
 
 // ─── 商店轨: 读数 → 快照 → 授权状态 (纯函数区; WinRT 在 store 模块) ──────
@@ -224,8 +275,16 @@ mod tests {
 
     fn cleanup(p: &std::path::Path) {
         let _ = fs::remove_file(p);
-        let _ = fs::remove_file(p.with_extension(format!("tmp.{}", std::process::id())));
+        // tmp 名带 pid+序号不可预报 —— 按前缀清同目录残渣。
         if let Some(dir) = p.parent() {
+            let prefix = format!("{}.tmp.", p.file_name().unwrap().to_string_lossy());
+            if let Ok(entries) = fs::read_dir(dir) {
+                for e in entries.flatten() {
+                    if e.file_name().to_string_lossy().starts_with(&prefix) {
+                        let _ = fs::remove_file(e.path());
+                    }
+                }
+            }
             let _ = fs::remove_dir(dir);
         }
     }
@@ -371,6 +430,22 @@ mod tests {
             .filter(|n| n.contains(".tmp"))
             .collect();
         assert!(leftovers.is_empty(), "残留 tmp: {leftovers:?}");
+        cleanup(&path);
+    }
+
+    #[test]
+    fn atomic_save_sweeps_stale_residue_keeps_fresh() {
+        // 与框架 persist 同形 (红队 F1/F9): 陈旧残渣清扫回收, 新鲜在飞不动。
+        let path = temp_path("sweep");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let foreign = path.parent().unwrap().join("sweep.key.tmp.999999.0");
+        fs::write(&foreign, b"stale").unwrap();
+        sweep_stale_tmp(&path, Duration::ZERO);
+        assert!(!foreign.exists(), "陈旧残渣没被扫掉");
+        fs::write(&foreign, b"fresh").unwrap();
+        sweep_stale_tmp(&path, STALE_TMP_MAX_AGE);
+        assert!(foreign.exists(), "新鲜在飞 tmp 被误清");
+        let _ = fs::remove_file(&foreign);
         cleanup(&path);
     }
 
